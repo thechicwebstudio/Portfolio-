@@ -18,41 +18,33 @@ export default async function ProjectGallery({ params }: { params: { slug: strin
 
   try {
     const projectDir = path.join(process.cwd(), 'public', 'projects', params.slug);
-    
-    function findImages(dir: string, currentGroup: string) {
+
+    const getImages = (dir: string, groupName: string) => {
       if (!fs.existsSync(dir)) return;
       const items = fs.readdirSync(dir);
-      
-      for (const item of items) {
+      items.forEach(item => {
         const fullPath = path.join(dir, item);
-        if (fs.statSync(fullPath).isDirectory()) {
-            findImages(fullPath, item); // use folder name as group
-        } else if (/\.(jpg|jpeg|png|webp|gif|avif)$/i.test(item)) {
-            const publicDir = path.join(process.cwd(), 'public');
-            let staticPath = fullPath.split(publicDir)[1].replace(/\\/g, '/');
-            
-            // Ensure there's a leading slash just in case
-            if (!staticPath.startsWith('/')) staticPath = '/' + staticPath;
-            
-            let groupName = currentGroup;
-            // Prevent naming the group the same as the project slug, fallback to 'Gallery'
-            if (groupName.toLowerCase() === params.slug.toLowerCase()) {
-                groupName = 'Gallery';
-            }
-            
-            if (!groupedImages[groupName]) groupedImages[groupName] = [];
-            groupedImages[groupName].push(staticPath);
+        const stat = fs.statSync(fullPath);
+        if (stat.isDirectory()) {
+          getImages(fullPath, item);
+        } else if (/\.(jpg|jpeg|png|gif|webp)$/i.test(item)) {
+          if (!groupedImages[groupName]) groupedImages[groupName] = [];
+          const relativePath = path.relative(
+            path.join(process.cwd(), 'public'),
+            fullPath
+          ).replace(/\\/g, '/');
+          groupedImages[groupName].push('/' + relativePath);
         }
-      }
-    }
+      });
+    };
 
-    findImages(projectDir, 'Gallery');
+    getImages(projectDir, 'Gallery');
 
     sortedGroups = Object.keys(groupedImages).sort((a, b) =>
       a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })
     );
   } catch (e) {
-    console.error('Local directory fetch error:', e);
+    console.error('Error reading images:', e);
   }
 
   return (
